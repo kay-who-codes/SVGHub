@@ -1,0 +1,74 @@
+<svg viewBox="0 0 841 841" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <!-- Four corner gradients -->
+    <radialGradient id="topLeft" cx="0%" cy="0%" r="90%">
+      <stop offset="0%" stop-color="#FF5CB8"/>
+      <stop offset="100%" stop-color="#FF5CB8" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="topRight" cx="100%" cy="0%" r="90%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="bottomLeft" cx="0%" cy="100%" r="90%">
+      <stop offset="0%" stop-color="#2DD4FF"/>
+      <stop offset="100%" stop-color="#2DD4FF" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="bottomRight" cx="100%" cy="100%" r="90%">
+      <stop offset="0%" stop-color="#0D1129"/>
+      <stop offset="100%" stop-color="#0D1129" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="841" height="841" fill="#0d1129"/>
+
+  <!-- Corner gradient glows -->
+  <circle cx="0" cy="0" r="700" fill="url(#topLeft)"/>
+  <circle cx="841" cy="0" r="700" fill="url(#topRight)"/>
+  <circle cx="0" cy="841" r="700" fill="url(#bottomLeft)"/>
+  <circle cx="841" cy="841" r="700" fill="url(#bottomRight)"/>
+
+
+  <!-- stars/sparkles inside the lens -->
+  <g fill="#ffffff">
+    <circle cx="452" cy="196" r="9"/>
+    <circle cx="181" cy="315" r="8"/>
+    <circle cx="551" cy="437" r="7"/>
+    <circle cx="404" cy="551" r="8"/>
+    <circle cx="320" cy="583" r="6"/>
+  </g>
+
+  <g fill="#8b6fd6">
+    <circle cx="351" cy="211" r="8"/>
+    <circle cx="576" cy="337" r="8"/>
+    <circle cx="182" cy="403" r="8"/>
+    <circle cx="246" cy="558" r="7"/>
+  </g>
+
+
+  <!-- four-point sparkle stars -->
+  <path d="M239 208 C242 228, 244 230, 264 233 C244 236, 242 238, 239 258 C236 238, 234 236, 214 233 C234 230, 236 228, 239 208 Z" fill="#ffffff"/>
+
+  <path d="M481 470 C485 496, 488 499, 514 503 C488 507, 485 510, 481 536 C477 510, 474 507, 448 503 C474 499, 477 496, 481 470 Z" fill="#8b6fd6"/>
+
+
+  <!-- galaxy -->
+  <g transform="translate(378,371) rotate(-25)">
+    <ellipse cx="0" cy="0" rx="170" ry="65" fill="#3d2e78"/>
+    <ellipse cx="0" cy="0" rx="120" ry="46" fill="#8b5fc7"/>
+    <ellipse cx="0" cy="0" rx="60" ry="28" fill="#c9a8ea"/>
+  </g>
+
+
+  <!-- magnifying glass -->
+  <g>
+    <circle cx="365" cy="365" r="285" fill="none" stroke="#ffffff" stroke-width="76"/>
+    <rect x="460" y="600" width="360" height="90" rx="35"
+          transform="rotate(45 630 700)" fill="#ffffff"/>
+  </g>
+
+</svg>
