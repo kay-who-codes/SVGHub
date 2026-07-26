@@ -66,8 +66,8 @@
 
   <!-- magnifying glass -->
   <g>
-    <circle cx="365" cy="365" r="285" fill="none" stroke="#ffffff" stroke-width="76"/>
-    <rect x="460" y="600" width="360" height="90" rx="35"
+    <circle cx="365" cy="365" r="285" fill="none" stroke="#ffffff" stroke-width="106"/>
+    <rect x="460" y="583" width="360" height="133" rx="35"
           transform="rotate(45 630 700)" fill="#ffffff"/>
   </g>
 
