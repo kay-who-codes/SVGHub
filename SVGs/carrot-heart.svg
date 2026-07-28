@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="carrotGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF9A2F"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Leaves -->
+  <g fill="#3CB043">
+    <ellipse cx="100" cy="42" rx="10" ry="28" transform="rotate(-30 100 42)"/>
+    <ellipse cx="128" cy="32" rx="10" ry="30"/>
+    <ellipse cx="156" cy="42" rx="10" ry="28" transform="rotate(30 156 42)"/>
+  </g>
+
+  <!-- Carrot heart -->
+  <path
+    d="
+      M128 228
+      C95 190, 40 145, 40 95
+      C40 60, 65 40, 95 40
+      C112 40, 123 48, 128 58
+      C133 48, 144 40, 161 40
+      C191 40, 216 60, 216 95
+      C216 145, 161 190, 128 228
+      Z"
+    fill="url(#carrotGradient)"
+  />
+
+  <!-- Carrot texture -->
+  <g stroke="#F5B16A" stroke-width="4" stroke-linecap="round" opacity="0.6">
+    <path d="M78 85 L98 81"/>
+    <path d="M62 112 L90 106"/>
+    <path d="M82 136 L112 130"/>
+    <path d="M144 81 L176 87"/>
+    <path d="M150 110 L188 118"/>
+    <path d="M136 140 L172 148"/>
+    <path d="M108 170 L148 174"/>
+    <path d="M118 198 L138 201"/>
+  </g>
+</svg>
