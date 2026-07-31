@@ -571,13 +571,60 @@ function updateDetailGithubLink() {
   el.githubLinkDisplay.title = link || '';
 }
 
+// ── GitHub repo auto-detection (for GitHub Pages) ──────────────────────────
+// On *.github.io, works out {owner}/{repo} from the URL so we can hit the
+// GitHub REST API and list the ACTUAL contents of the SVGs folder — no
+// manifest file, no filename assumptions, works for any/all unique names.
+function detectGithubRepoInfo() {
+  const host = location.hostname;
+  const m = host.match(/^([^.]+)\.github\.io$/i);
+  if (!m) return null;
+  const owner = m[1];
+  const parts = location.pathname.split('/').filter(Boolean);
+  // Project page (username.github.io/repo/...) vs user/org page (served at root)
+  const repo = parts.length > 0 ? parts[0] : `${owner}.github.io`;
+  return { owner, repo };
+}
+
+// Fetch the directory listing via the GitHub Contents API — returns every
+// file in the folder regardless of name, including download_url for raw fetch.
+async function fetchSVGsViaGithubAPI(path = 'SVGs') {
+  const info = detectGithubRepoInfo();
+  if (!info) throw new Error('not a github.io host');
+  const apiUrl = `https://api.github.com/repos/${info.owner}/${info.repo}/contents/${encodeURIComponent(path)}`;
+  const res = await fetch(apiUrl, { headers: { 'Accept': 'application/vnd.github+json' } });
+  if (!res.ok) throw new Error(`github api ${res.status}`);
+  const items = await res.json();
+  if (!Array.isArray(items)) throw new Error('unexpected github api response');
+  const svgFiles = items.filter(it => it.type === 'file' && it.name.toLowerCase().endsWith('.svg') && it.download_url);
+  if (!svgFiles.length) throw new Error('no svgs found via github api');
+  // Pre-fill the GitHub raw base URL for the "copy link" feature while we're at it
+  if (!state.githubBase && svgFiles[0].download_url) {
+    const du = svgFiles[0].download_url; // .../raw.githubusercontent.com/owner/repo/branch/SVGs/name.svg
+    const base = du.slice(0, du.lastIndexOf('/') + 1);
+    state.githubBase = base;
+    el.githubBaseInput.value = base;
+  }
+  return svgFiles.map(it => ({ name: it.name, url: it.download_url }));
+}
+
 // ── Loading SVGs ───────────────────────────────────────────────────────────
 async function tryAutoLoad() {
   el.emptyState.style.display = 'none';
   el.loadState.style.display = 'flex';
 
-  // GitHub Pages has no directory listing, so we read SVGs/manifest.json
-  // which is a simple JSON array of filenames: ["file1.svg","file2.svg",...]
+  // 1) Best option on GitHub Pages: ask the GitHub API for the real folder
+  //    contents. This picks up every SVG regardless of filename, with no
+  //    manifest to maintain.
+  try {
+    const items = await fetchSVGsViaGithubAPI('SVGs');
+    await loadFromURLs(items);
+    return;
+  } catch (e) {
+    // not on github.io, rate-limited, private repo, or folder missing — fall through
+  }
+
+  // 2) Optional manifest.json, useful for non-GitHub-Pages hosting or overrides
   try {
     const res = await fetch('./SVGs/manifest.json?_=' + Date.now());
     if (!res.ok) throw new Error('no manifest');
@@ -591,7 +638,7 @@ async function tryAutoLoad() {
     // manifest missing or invalid — fall through
   }
 
-  // Fallback: try a plain directory listing (works on some servers, not GitHub Pages)
+  // 3) Plain directory listing (works on some servers, not GitHub Pages)
   try {
     const res = await fetch('./SVGs/');
     if (!res.ok) throw new Error('no listing');
@@ -607,13 +654,13 @@ async function tryAutoLoad() {
   // Nothing worked — show the empty state with instructions
   el.loadState.style.display = 'none';
   el.emptyState.style.display = 'flex';
-  el.emptyState.querySelector('h3').textContent = 'Add a manifest to auto-load';
+  el.emptyState.querySelector('h3').textContent = 'Could not auto-load SVGs';
   el.emptyState.querySelector('p').innerHTML =
-    'GitHub Pages needs a <code style="color:var(--accent)">SVGs/manifest.json</code> file.<br>' +
-    'Create it with the filenames of your SVGs:<br>' +
-    '<code style="color:var(--accent);font-size:11px;display:block;margin-top:6px">' +
-    '["file1.svg", "file2.svg", "file3.svg"]</code><br>' +
-    'Or use <strong>Load Folder</strong> / drag &amp; drop to browse manually.';
+    'On GitHub Pages, this page tries the GitHub API to list everything in ' +
+    '<code style="color:var(--accent)">SVGs/</code> automatically — no manifest needed. ' +
+    'That failed (private repo, wrong path, or rate limit).<br><br>' +
+    'You can also add a <code style="color:var(--accent)">SVGs/manifest.json</code> ' +
+    'listing filenames as a fallback, or use <strong>Load Folder</strong> / drag &amp; drop to browse manually.';
 }
 
 async function loadFromURLs(items) {
