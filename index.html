@@ -127,6 +127,7 @@
   .tool-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
   .tool-btn:disabled { opacity: .35; cursor: default; }
   .tool-btn.copied { border-color: var(--success); color: var(--success); background: #4ade8020; }
+  .tool-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 
   /* ── Grid view ── */
   #grid-view { flex: 1; overflow-y: auto; padding: 16px; }
@@ -186,8 +187,20 @@
   }
   #code-panel-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
   #code-panel-header h4 { font-size: 12px; color: var(--text-dim); font-weight: 500; flex: 1; }
-  #code-content { flex: 1; overflow: auto; }
+  #code-content { flex: 1; overflow: auto; position: relative; }
   #svg-code { display: block; padding: 14px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 11.5px; line-height: 1.6; color: #c9d1d9; white-space: pre; tab-size: 2; }
+  #svg-editor {
+    display: none; width: 100%; height: 100%; min-height: 100%; resize: none;
+    background: #0d0d10; border: none; outline: none;
+    color: #c9d1d9; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11.5px; line-height: 1.6; tab-size: 2; padding: 14px;
+  }
+  #code-panel.editing #svg-code { display: none; }
+  #code-panel.editing #svg-editor { display: block; }
+  #edit-status { font-size: 10px; color: var(--text-dim); padding: 2px 8px; white-space: nowrap; }
+  #edit-status.dirty { color: var(--warn); }
+  #edit-status.error { color: #f87171; }
+  #edit-status.ok { color: var(--success); }
 
   /* GitHub raw link row in detail toolbar */
   #github-link-row { display: flex; align-items: center; gap: 6px; }
@@ -262,6 +275,7 @@
     #sidebar-overlay.open { display: block; }
     #menu-btn { display: flex; }
     #code-panel { display: none; }
+    #code-panel.mobile-open { display: flex; position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 60; width: auto; }
     #detail-view { flex-direction: column; }
     #preview-img { max-height: 50vh; }
     #info-strip { gap: 10px; }
@@ -348,6 +362,14 @@
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download
       </button>
+      <button class="tool-btn" id="btn-edit" title="Toggle live edit mode">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Edit
+      </button>
+      <button class="tool-btn" id="btn-reset-edit" title="Revert edits to original" style="display:none">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        Revert
+      </button>
       <button class="tool-btn" id="btn-fullscreen" title="Fullscreen">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
@@ -387,10 +409,12 @@
         <div id="code-panel-header">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
           <h4>SVG Source</h4>
+          <span id="edit-status"></span>
           <button class="tool-btn" id="btn-copy-code2" style="padding:3px 8px;font-size:11px">Copy</button>
         </div>
         <div id="code-content">
           <code id="svg-code"></code>
+          <textarea id="svg-editor" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
         </div>
       </div>
     </div>
@@ -434,13 +458,14 @@
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 const state = {
-  files: [],        // { name, url, size, code, dims, viewBox }
+  files: [],        // { name, url, size, code, dims, viewBox, origCode, edited }
   filtered: [],
   current: null,    // index into filtered
   view: 'grid',     // 'grid' | 'detail'
   zoom: 1,
   bg: 'dark',       // 'dark' | 'check' | 'white'
   githubBase: '',   // e.g. https://raw.githubusercontent.com/user/repo/branch/SVGs/
+  editing: false,
 };
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
@@ -460,6 +485,11 @@ const el = {
   infoStrip:  $('info-strip'),
   previewImg: $('preview-img'),
   svgCode:    $('svg-code'),
+  svgEditor:  $('svg-editor'),
+  codePanel:  $('code-panel'),
+  editStatus: $('edit-status'),
+  btnEdit:    $('btn-edit'),
+  btnResetEdit: $('btn-reset-edit'),
   zoomLevel:  $('zoom-level'),
   toolbarFn:  $('toolbar-filename'),
   infoName:   $('info-name'),
@@ -503,6 +533,17 @@ function parseSVGMeta(code) {
   if (w && h) dims = `${w} × ${h}`;
   else if (vb) { const p = vb.split(/[\s,]+/); if (p.length >= 4) dims = `${p[2]} × ${p[3]}`; }
   return { dims, viewBox: vb || '—' };
+}
+
+// Returns null if valid SVG, or an error message string if not.
+function validateSVG(code) {
+  if (!code || !code.trim()) return 'Empty source';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(code, 'image/svg+xml');
+  const errNode = doc.querySelector('parsererror');
+  if (errNode) return errNode.textContent.split('\n')[0].slice(0, 120);
+  if (doc.documentElement.nodeName.toLowerCase() !== 'svg') return 'Root element must be <svg>';
+  return null;
 }
 
 // Basic SVG syntax highlighter
@@ -675,7 +716,7 @@ async function loadFromURLs(items) {
       const meta = parseSVGMeta(code);
       const blob = new Blob([code], { type: 'image/svg+xml' });
       const objUrl = URL.createObjectURL(blob);
-      loaded.push({ name, url: objUrl, size, code, ...meta });
+      loaded.push({ name, url: objUrl, size, code, origCode: code, edited: false, ...meta });
     } catch {}
   }));
   el.loadState.style.display = 'none';
@@ -697,7 +738,7 @@ async function loadFromFiles(fileList) {
     const meta = parseSVGMeta(code);
     const blob = new Blob([code], { type: 'image/svg+xml' });
     const objUrl = URL.createObjectURL(blob);
-    loaded.push({ name: f.name, url: objUrl, size, code, ...meta });
+    loaded.push({ name: f.name, url: objUrl, size, code, origCode: code, edited: false, ...meta });
   }));
   loaded.sort((a, b) => a.name.localeCompare(b.name));
   state.files.push(...loaded);
@@ -736,7 +777,7 @@ function renderGrid() {
         </button>
       </div>
       <div class="card-info">
-        <div class="card-name" title="${f.name}">${f.name}</div>
+        <div class="card-name" title="${f.name}">${f.name}${f.edited ? ' •' : ''}</div>
         <div class="card-meta">${fmtSize(f.size)} · ${f.dims}</div>
       </div>`;
     card.addEventListener('click', (e) => {
@@ -766,7 +807,7 @@ function renderSidebar() {
     item.className = 'file-item' + (state.current === i ? ' active' : '');
     item.innerHTML = `
       <div class="thumb-mini"><img src="${f.url}" alt="" loading="lazy"></div>
-      <span class="name" title="${f.name}">${f.name}</span>
+      <span class="name" title="${f.name}">${f.name}${f.edited ? ' •' : ''}</span>
       <span class="size">${fmtSize(f.size)}</span>
       <button class="link-btn" title="Copy GitHub raw link" data-idx="${i}">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 6"/><path d="M14 11a5 5 0 00-7.07 0L5.5 12.41a5 5 0 007.07 7.07L14 18"/></svg>
@@ -793,12 +834,17 @@ function selectFile(i) {
 }
 
 function openDetail(i) {
+  // Leave edit mode when switching files
+  if (state.editing) setEditing(false);
   selectFile(i);
   setView('detail');
   const f = state.filtered[i];
   el.previewImg.src = f.url;
-  el.toolbarFn.textContent = f.name;
+  el.toolbarFn.textContent = f.name + (f.edited ? ' (edited)' : '');
   el.svgCode.innerHTML = highlight(f.code);
+  el.svgEditor.value = f.code;
+  el.btnResetEdit.style.display = f.edited ? 'flex' : 'none';
+  setEditStatus(f.edited ? 'edited' : '');
   // Info strip
   el.infoName.textContent = f.name;
   el.infoSize.textContent = fmtSize(f.size);
@@ -820,6 +866,7 @@ function setView(v) {
   el.infoStrip.style.display = isGrid ? 'none' : 'flex';
   $('btn-grid').classList.toggle('active', isGrid);
   $('btn-detail').classList.toggle('active', !isGrid);
+  if (isGrid && state.editing) setEditing(false);
 }
 
 // ── Zoom ───────────────────────────────────────────────────────────────────
@@ -871,6 +918,112 @@ $('btn-fullscreen').addEventListener('click', () => {
   if (state.current != null) openLightbox(state.current);
 });
 
+// ── Live SVG editing ───────────────────────────────────────────────────────
+function setEditStatus(kind, msg) {
+  el.editStatus.className = kind || '';
+  el.editStatus.textContent = msg || (kind === 'edited' ? 'edited' : kind === 'dirty' ? 'unsaved changes' : kind === 'ok' ? 'valid' : kind === 'error' ? 'invalid SVG' : '');
+}
+
+function setEditing(on) {
+  state.editing = on;
+  el.codePanel.classList.toggle('editing', on);
+  el.codePanel.classList.toggle('mobile-open', on);
+  el.btnEdit.classList.toggle('active', on);
+  el.btnEdit.innerHTML = on
+    ? '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Preview'
+    : '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Edit';
+  if (on) {
+    el.svgEditor.focus();
+    // put cursor at start
+    el.svgEditor.setSelectionRange(0, 0);
+  }
+}
+
+// Debounced live-preview update as the user types.
+let editDebounce = null;
+function scheduleLivePreview() {
+  clearTimeout(editDebounce);
+  setEditStatus('dirty');
+  editDebounce = setTimeout(applyLiveEdit, 220);
+}
+
+function applyLiveEdit() {
+  if (state.current == null || !state.filtered[state.current]) return;
+  const f = state.filtered[state.current];
+  const code = el.svgEditor.value;
+  const err = validateSVG(code);
+  if (err) {
+    setEditStatus('error', 'Invalid SVG: ' + err);
+    return; // keep last-good preview on screen
+  }
+  // Rebuild the object URL for a fresh, live preview
+  const oldUrl = f.url;
+  const blob = new Blob([code], { type: 'image/svg+xml' });
+  const newUrl = URL.createObjectURL(blob);
+  const meta = parseSVGMeta(code);
+
+  f.code = code;
+  f.url = newUrl;
+  f.size = new Blob([code]).size;
+  f.dims = meta.dims;
+  f.viewBox = meta.viewBox;
+  f.edited = code !== f.origCode;
+
+  URL.revokeObjectURL(oldUrl);
+
+  // Live-update everywhere this file is shown
+  el.previewImg.src = newUrl;
+  el.svgCode.innerHTML = highlight(code);
+  el.infoSize.textContent = fmtSize(f.size);
+  el.infoDims.textContent = f.dims;
+  el.infoVb.textContent = f.viewBox;
+  el.toolbarFn.textContent = f.name + (f.edited ? ' (edited)' : '');
+  el.btnResetEdit.style.display = f.edited ? 'flex' : 'none';
+  setEditStatus(f.edited ? 'edited' : 'ok');
+
+  // Refresh thumbnails without a full re-render (avoids losing scroll position)
+  const gridImg = el.svgGrid.children[state.current]?.querySelector('.card-preview img');
+  if (gridImg) gridImg.src = newUrl;
+  const sideImg = el.fileList.children[state.current]?.querySelector('.thumb-mini img');
+  if (sideImg) sideImg.src = newUrl;
+  const gridName = el.svgGrid.children[state.current]?.querySelector('.card-name');
+  if (gridName) gridName.textContent = f.name + (f.edited ? ' •' : '');
+  const gridMeta = el.svgGrid.children[state.current]?.querySelector('.card-meta');
+  if (gridMeta) gridMeta.textContent = `${fmtSize(f.size)} · ${f.dims}`;
+  const sideName = el.fileList.children[state.current]?.querySelector('.name');
+  if (sideName) sideName.textContent = f.name + (f.edited ? ' •' : '');
+}
+
+el.svgEditor.addEventListener('input', scheduleLivePreview);
+
+// Tab key inserts two spaces instead of moving focus
+el.svgEditor.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = el.svgEditor.selectionStart, end = el.svgEditor.selectionEnd;
+    el.svgEditor.value = el.svgEditor.value.slice(0, start) + '  ' + el.svgEditor.value.slice(end);
+    el.svgEditor.selectionStart = el.svgEditor.selectionEnd = start + 2;
+    scheduleLivePreview();
+  }
+  // Cmd/Ctrl+Enter also flips back to preview
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    clearTimeout(editDebounce);
+    applyLiveEdit();
+    setEditing(false);
+  }
+});
+
+$('btn-edit').addEventListener('click', () => setEditing(!state.editing));
+
+$('btn-reset-edit').addEventListener('click', () => {
+  if (state.current == null || !state.filtered[state.current]) return;
+  const f = state.filtered[state.current];
+  if (!f.edited) return;
+  el.svgEditor.value = f.origCode;
+  applyLiveEdit();
+  showToast('Reverted to original');
+});
+
 // ── GitHub raw link config & copy ─────────────────────────────────────────
 el.githubBaseInput.addEventListener('input', () => {
   state.githubBase = el.githubBaseInput.value;
@@ -903,7 +1056,7 @@ $('lb-next').addEventListener('click', () => { if (state.current < state.filtere
 
 // ── Keyboard nav ───────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (el.search === document.activeElement || el.githubBaseInput === document.activeElement) return;
+  if (el.search === document.activeElement || el.githubBaseInput === document.activeElement || el.svgEditor === document.activeElement) return;
   if (e.key === 'Escape') { closeLightbox(); if (state.view === 'detail') setView('grid'); }
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
     e.preventDefault();
@@ -917,6 +1070,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'f' || e.key === 'F') { if (state.current != null) openLightbox(state.current); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'c') { copyCode(); }
+  if (e.key === 'e' || e.key === 'E') { if (state.view === 'detail') setEditing(!state.editing); }
 });
 
 // ── View toggle ────────────────────────────────────────────────────────────
